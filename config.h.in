@@ -1,0 +1,1 @@
+#define CONFIGPATH "${CMAKE_INSTALL_PREFIX}/lib/confplus/backend"
