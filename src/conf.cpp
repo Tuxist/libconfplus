@@ -38,53 +38,114 @@
 #include "conf.h"
 #include "config.h"
 
-confplus::ConfigValue::ConfigValue(){
-    _firstValue=nullptr;
+confplus::Config::ConfigValue::ConfigValue(){
     _nextValue=nullptr;
-    _Index=0;
 }
 
-confplus::ConfigValue::~ConfigValue(){
+confplus::Config::ConfigValue::~ConfigValue(){
     delete _nextValue;
 }
 
-const char * confplus::ConfigValue::operator[](size_t idx){
-    for(ConfigValue *cval=_firstValue; cval; cval=cval->_nextValue){
-        if(cval->_Index==idx)
-            return _Value.c_str();
-    }
-    return nullptr;
-}
-
-confplus::ConfigValue & confplus::Config::Value(const char* key){
-    for(ConfigData *cdat=firstData; cdat; cdat=cdat->nextData){
-        if(cdat->Key==key){
-            return cdat->Value;
+confplus::Config::ConfigData *confplus::Config::getKey(const char* key){
+    ConfigData *child=firstData;
+    size_t start=0;
+    for(size_t pos=0; pos<strlen(key); ++pos){
+        if(key[pos]=='/'){
+            std::string childkey;
+            std::copy(key+start,key+(pos-1),std::inserter<std::string>(childkey,childkey.begin()));
+            if(child->haveChild){
+                for(ConfigData *cdat=child; cdat; cdat=cdat->nextData){
+                    if(cdat->Key==childkey){
+                        child=cdat->Child;
+                    }
+                }
+                start=++pos;
+            }
         }
     }
+
+    std::string vkey;
+    std::copy(key+start,key+strlen(key),std::inserter<std::string>(vkey,vkey.begin()));
+
+    for(ConfigData *cdat=child; cdat; cdat=cdat->nextData){
+        if(!child->haveChild && cdat->Key==vkey){
+            return cdat->Child;
+        }
+    }
+
     ConfException exp;
     exp[ConfException::Critical] << "Config: key not found";
     throw exp;
 }
 
-confplus::Config::ConfigData & confplus::Config::Child(const char* key){
-    for(ConfigData *cdat=firstData; cdat; cdat=cdat->nextData){
-        if(cdat->Key==key){
-            return *cdat->childData;
+confplus::Config::ConfigData *confplus::Config::setKey(const char* key){
+    ConfigData *child=firstData,*ekey=nullptr;
+    size_t start=0;
+    for(size_t pos=0; pos<strlen(key); ++pos){
+        if(key[pos]=='/'){
+            if(ekey){
+                ConfException exp;
+                exp[ConfException::Critical] << "Config: set key it's value not index type";
+                throw exp;
+            }
+            std::string childkey;
+            std::copy(key+start,key+(pos-1),std::inserter<std::string>(childkey,childkey.begin()));
+            ConfigData *cdat=child->nextData,*before=child;
+            while(cdat){
+                if(cdat->Key==childkey){
+                    if(cdat->haveChild){
+                        child=cdat->Child;
+                        break;
+                    } else{
+                        ekey=cdat->Child;
+                    }
+                }
+                before=cdat;
+                cdat=cdat->nextData;
+            };
+            if(!cdat){
+                before->nextData=new ConfigData;
+                before->haveChild=true;
+                cdat=before->nextData;
+            }
+            start=++pos;
         }
     }
-    ConfException exp;
-    exp[ConfException::Critical] << "Config: key not found";
-    throw exp;
+
+    std::string reskey;
+    std::copy(key+start,key+strlen(key),std::inserter<std::string>(reskey,reskey.begin()));
+
+    if(!ekey){
+        child->nextData=new ConfigData;
+        ConfigData *res=child->nextData;
+        res->haveChild=false;
+        res->Value._nextValue=nullptr;
+        return res;
+    }
+
+    return ekey;
 }
+
+void confplus::Config::delKey(confplus::Config::ConfigData* key){
+    ConfigData *bef=nullptr;
+    for(ConfigData *cur=firstData; cur; cur=cur->nextData){
+        if(cur==key){
+            bef->nextData=key->nextData;
+            key->nextData=nullptr;
+            delete key;
+        }
+        bef=cur;
+    }
+}
+
 
 confplus::Config::ConfigData::ConfigData(){
-    childData=nullptr;
     nextData=nullptr;
 }
 
 confplus::Config::ConfigData::~ConfigData(){
-    delete childData;
+    if(haveChild)
+        delete Child;
     delete nextData;
 }
 
@@ -94,7 +155,6 @@ size_t confplus::Config::ConfigData::getElements(){
 
 confplus::Config::Config(const char* path){
     firstData=nullptr;
-    lastData=nullptr;
 
     int i =0;
 
@@ -125,7 +185,7 @@ confplus::Config::Config(const char* path){
     const char* dlsym_error = dlerror();
     if (dlsym_error) {
         ConfException err;
-        err << "Cannot load symbol create: " << dlsym_error << '\n';
+        err[ConfException::Critical] << "Cannot load symbol create: " << dlsym_error << '\n';
         throw err;
     }
 
@@ -164,4 +224,73 @@ const char* confplus::Config::getAuthor(){
 
 void confplus::Config::saveConfig(const char *path){
     _currApi->saveConfig(path,this);
+}
+
+size_t confplus::Config::getElements(confplus::Config::ConfigData* key){
+    return key->Elements;
+}
+
+const char * confplus::Config::getValue(confplus::Config::ConfigData* key, size_t pos){
+    if(key->haveChild){
+        ConfException err;
+        err[ConfException::Error] << "getValue it is a path not key" << pos  << '\n';
+        throw err;
+    }
+    if(key->Elements<pos){
+        ConfException err;
+        err[ConfException::Error] << "getValue pos out of range !" << pos  << '\n';
+        throw err;
+    }
+
+    size_t lvl=0;
+
+    for(ConfigValue *cur=&key->Value; cur; cur=cur->_nextValue){
+        if(lvl==pos){
+            return cur->_Value.c_str();
+        }
+        ++lvl;
+    }
+
+    return nullptr;
+
+}
+
+int confplus::Config::getIntValue(confplus::Config::ConfigData* key, size_t pos){
+    return atoi(getValue(key,pos));
+}
+
+void confplus::Config::setValue(confplus::Config::ConfigData* key, size_t pos, const char* value){
+    if(key->haveChild){
+        ConfException err;
+        err[ConfException::Error] << "getValue it is a path not key" << pos  << '\n';
+        throw err;
+    }
+
+    for(ConfigValue *cur=&key->Value; cur; cur=cur->_nextValue){
+        if(cur->_Pos==pos){
+            cur->_Value=value;
+            return;
+        }
+    }
+
+    ConfigValue *cur=&key->Value,*bef=nullptr;
+
+    while(cur){
+        bef=cur;
+        cur=cur->_nextValue;
+    };
+
+    bef->_nextValue = new ConfigValue();
+    bef->_Value = value;
+    bef->_Pos = pos;
+
+    ++key->Elements;
+
+    return;
+}
+
+void confplus::Config::setIntValue(confplus::Config::ConfigData* key, size_t pos, int value){
+   char inv[512];
+   snprintf(inv,512,"%d",value);
+   setValue(key,pos,inv);
 }

@@ -33,43 +33,56 @@
 #pragma once
 
 namespace confplus {
-    class ConfigValue{
-    public:
-        const char *operator[](size_t idx);
-        ConfigValue();
-        ~ConfigValue();
-        std::string   _Value;
-        size_t        _Index;
-        ConfigValue  *_nextValue;
-        ConfigValue  *_firstValue;
-        friend class Config;
-    };
 
     class Config {
     public:
         Config(const char *path);
         ~Config();
 
+        class ConfigValue{
+        private:
+            ConfigValue();
+            ~ConfigValue();
+            std::string   _Value;
+            size_t        _Pos;
+            ConfigValue  *_nextValue;
+            friend class Config;
+        };
+
         class ConfigData{
-        public:
+        private:
             size_t getElements();
             ConfigData();
             ~ConfigData();
 
             std::string  Key;
             size_t       Elements;
-            ConfigValue  Value;
-            ConfigData  *childData;
+
+            bool         haveChild;
+
+            union {
+                ConfigValue  Value;
+                ConfigData  *Child;
+            };
+
             ConfigData  *nextData;
             friend class Config;
-            friend class Yaml;
         };
 
-        ConfigValue &Value(const char* key);
-        ConfigData  &Child(const char* key);
+
+        ConfigData  *getKey(const char* key);
+        ConfigData  *setKey(const char *key);
+        void         delKey(ConfigData  *key);
+
+        size_t getElements(ConfigData *key);
+
+        void setValue(ConfigData *key,size_t pos,const char *value);
+        void setIntValue(ConfigData *key,size_t pos,int value);
+
+        const char* getValue(ConfigData *key,size_t pos);
+        int  getIntValue(ConfigData *key,size_t pos);
 
         ConfigData *firstData;
-        ConfigData *lastData;
     public:
         const char* getName();
         const char* getVersion();

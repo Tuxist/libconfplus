@@ -25,6 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *******************************************************************************/
 
+#include <string>
+
 #include "conf.h"
 #include "yaml.h"
 
@@ -34,39 +36,6 @@ confplus::Yaml::Yaml(){
 
 confplus::Yaml::~Yaml(){
 }
-
-
-// confplus::ConfigData * confplus::Yaml::_scanBlock(yaml_token_t* curblock,yaml_token_t *next,ConfigData *parent,ConfigData *cur){
-    // /* BEGIN new code */
-    // if (curblock->type != YAML_STREAM_END_TOKEN){
-    //     switch(curblock->type) {
-    //         case(YAML_BLOCK_MAPPING_START_TOKEN):{
-    //             if(!parent){
-    //                 cur = new ConfigData;
-    //                 cur->Key.insert(0,(const char*)curblock->data.scalar.value,curblock->data.scalar.length);
-    //             }else{
-    //                 cur->childData = new ConfigData;
-    //                 parent=cur->childData;
-    //             }
-    //         }break;
-    //         case(YAML_BLOCK_END_TOKEN):{
-    //             return parent;
-    //         }break;
-    //         case YAML_VALUE_TOKEN:{
-    //             if(conf.firstData){
-    //                 lastData->nextData= new ConfigData;
-    //                 lastData=lastData->nextData;
-    //             }else{
-    //                 firstData= new ConfigData;
-    //                 lastData=firstData;
-    //             }
-    //         }break;
-    //         default:
-    //             printf("Got token of type %d\n", curblock->type);
-    //     }
-    // }
-    // return parent;
-// }
 
 const char* confplus::Yaml::getName(){
     return "yaml";
@@ -87,7 +56,11 @@ void confplus::Yaml::saveConfig(const char *path,const Config *conf){
 
 void confplus::Yaml::loadConfig(const char *path,Config *conf){
     FILE *fh = fopen(path,"r");
-    yaml_token_t  token,token2;
+    yaml_token_t  token;
+    yaml_event_t event;
+    yaml_event_type_t event_type;
+
+    int curlevel=0;
 
      /* Initialize parser */
     if(!yaml_parser_initialize(&_Parser))
@@ -98,20 +71,21 @@ void confplus::Yaml::loadConfig(const char *path,Config *conf){
     /* Set input file */
     yaml_parser_set_input_file(&_Parser, fh);
 
-    yaml_parser_scan(&_Parser, &token);
-    yaml_parser_scan(&_Parser, &token2);
 
-    if(conf->firstData){
-        delete conf->firstData;
-        conf->firstData=nullptr;
-    }
+    do {
+        if (!yaml_parser_parse(&_Parser, &event))
+            break;
+        switch (event.type) {
+            case YAML_SCALAR_EVENT:{
+            }break;
 
-    // conf->lastData=_scanBlock(&token,&token2,nullptr,conf->firstData);
+        }
+        event_type=event.type;
+        yaml_event_delete(&event);
 
+    } while (event_type!= YAML_STREAM_END_EVENT);
 
     yaml_token_delete(&token);
-    yaml_token_delete(&token2);
-
     yaml_parser_delete(&_Parser);
     fclose(fh);
 }
