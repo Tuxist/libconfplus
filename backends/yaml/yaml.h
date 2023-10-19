@@ -43,8 +43,6 @@ namespace confplus {
 
         Yaml();
         virtual ~Yaml();
-    private:
-        yaml_parser_t  _Parser;
     };
 };
 

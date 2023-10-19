@@ -25,10 +25,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *******************************************************************************/
 
+#include <iostream>
+
 #include <string>
 
 #include "conf.h"
 #include "yaml.h"
+
+namespace confplus {
+    struct YamlStack {
+        std::string   anchor;
+        YamlStack    *prevel;
+    };
+};
 
 confplus::Yaml::Yaml(){
 
@@ -55,37 +64,85 @@ void confplus::Yaml::saveConfig(const char *path,const Config *conf){
 
 
 void confplus::Yaml::loadConfig(const char *path,Config *conf){
-    FILE *fh = fopen(path,"r");
-    yaml_token_t  token;
-    yaml_event_t event;
-    yaml_event_type_t event_type;
-
-    int curlevel=0;
+    FILE *fh = fopen(path,"rb");
+    yaml_event_type_t type;
+    yaml_parser_t parse;
 
      /* Initialize parser */
-    if(!yaml_parser_initialize(&_Parser))
+    if(!yaml_parser_initialize(&parse))
         throw "Failed to initialize parser!";
     if(fh == nullptr)
         throw "Failed to open file!";
 
     /* Set input file */
-    yaml_parser_set_input_file(&_Parser, fh);
+    yaml_parser_set_input_file(&parse, fh);
 
+    YamlStack *ystack=nullptr;
+
+    bool seq=false;
+    std::string key,value;
 
     do {
-        if (!yaml_parser_parse(&_Parser, &event))
+        yaml_event_t event;
+        if (!yaml_parser_parse(&parse, &event))
             break;
+
         switch (event.type) {
-            case YAML_SCALAR_EVENT:{
+            case YAML_MAPPING_START_EVENT: {
+                    YamlStack *cystack=new YamlStack;
+                    cystack->prevel=ystack;
+                    ystack=cystack;
+                    ystack->anchor=key;
+                    key.clear();
             }break;
 
+            case YAML_MAPPING_END_EVENT:{
+                if(ystack->prevel){
+                    YamlStack *pystack=ystack->prevel;
+                    delete ystack;
+                    ystack=pystack;
+                }
+            }break;
+
+
+            case YAML_SCALAR_EVENT:{
+                if(key.empty())
+                    std::copy(event.data.scalar.value,event.data.scalar.value+event.data.scalar.length,std::inserter<std::string>(key,std::begin(key)));
+                else
+                    std::copy(event.data.scalar.value,event.data.scalar.value+event.data.scalar.length,std::inserter<std::string>(value,std::begin(value)));
+            }break;
+
+            case YAML_SEQUENCE_START_EVENT:{
+                seq=true;
+            }break;
+
+            case YAML_SEQUENCE_END_EVENT:{
+                seq=false;
+                key.clear();
+            }break;
+
+            default:
+                break;
         }
-        event_type=event.type;
+
+        if(!key.empty() && !value.empty()){
+            std::string cname;
+            for(YamlStack *curst=ystack; curst; curst=curst->prevel){
+                std::string pp=curst->anchor; pp+='/';
+                std::copy(pp.begin(),pp.end(),std::inserter<std::string>(cname,std::begin(cname)));
+            }
+            cname+=key;
+            std::cerr << cname << ": " << value  << std::endl;
+            value.clear();
+            if(!seq)
+                key.clear();
+                    // Config::ConfigData *ckey=conf->setKey(cname.c_str());
+                    // conf->setValue(ckey,0,value.c_str());
+        }
+        type=event.type;
         yaml_event_delete(&event);
+    } while (type!= YAML_STREAM_END_EVENT);
 
-    } while (event_type!= YAML_STREAM_END_EVENT);
-
-    yaml_token_delete(&token);
-    yaml_parser_delete(&_Parser);
+    yaml_parser_delete(&parse);
     fclose(fh);
 }

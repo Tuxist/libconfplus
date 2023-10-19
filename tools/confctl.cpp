@@ -33,6 +33,9 @@
 int main(int argc,char *argv[]){
     try{
         confplus::Config conf(argv[1]);
+        if(conf.getKey("HTTP")){
+            std::cout << "success" << std::endl;
+        }
     }catch(confplus::ConfException &e){
         std::cerr << e.what() << std::endl;
     }
