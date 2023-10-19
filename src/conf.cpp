@@ -79,20 +79,19 @@ confplus::Config::ConfigData *confplus::Config::getKey(const char* key){
 }
 
 confplus::Config::ConfigData *confplus::Config::setKey(const char* key){
-    ConfigData *child=firstData,*ekey=nullptr;
+    ConfigData *child=firstData,*ekey=nullptr,*before=nullptr;
     size_t start=0;
     for(size_t pos=0; pos<strlen(key); ++pos){
         if(key[pos]=='/'){
             if(ekey){
-                ConfigData *dkey=ekey;
-                if(ekey->nextData)
-                   ekey->nextData=ekey->nextData->nextData;
-                dkey->nextData=nullptr;
-                delete dkey;
+                if(before)
+                    before->nextData=ekey->nextData;
+                ekey->nextData=nullptr;
+                delete ekey;
             }
             std::string childkey;
             std::copy(key+start,key+(pos-1),std::inserter<std::string>(childkey,childkey.begin()));
-            ConfigData *cdat=child,*before=nullptr;
+            ConfigData *cdat=child;
             while(cdat){
                 if(cdat->Key==childkey){
                     if(cdat->haveChild){
