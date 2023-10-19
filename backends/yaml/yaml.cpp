@@ -133,11 +133,11 @@ void confplus::Yaml::loadConfig(const char *path,Config *conf){
             }
             cname+=key;
             std::cerr << cname << ": " << value  << std::endl;
+            Config::ConfigData *ckey=conf->setKey(cname.c_str());
+            conf->setValue(ckey,0,value.c_str());
             value.clear();
             if(!seq)
                 key.clear();
-                    // Config::ConfigData *ckey=conf->setKey(cname.c_str());
-                    // conf->setValue(ckey,0,value.c_str());
         }
         type=event.type;
         yaml_event_delete(&event);

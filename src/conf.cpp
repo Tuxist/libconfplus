@@ -53,7 +53,7 @@ confplus::Config::ConfigData *confplus::Config::getKey(const char* key){
         if(key[pos]=='/'){
             std::string childkey;
             std::copy(key+start,key+(pos-1),std::inserter<std::string>(childkey,childkey.begin()));
-            if(child->haveChild){
+            if(child && child->haveChild){
                 for(ConfigData *cdat=child; cdat; cdat=cdat->nextData){
                     if(cdat->Key==childkey){
                         child=cdat->Child;
@@ -84,13 +84,15 @@ confplus::Config::ConfigData *confplus::Config::setKey(const char* key){
     for(size_t pos=0; pos<strlen(key); ++pos){
         if(key[pos]=='/'){
             if(ekey){
-                ConfException exp;
-                exp[ConfException::Critical] << "Config: set key it's value not index type";
-                throw exp;
+                ConfigData *dkey=ekey;
+                if(ekey->nextData)
+                   ekey->nextData=ekey->nextData->nextData;
+                dkey->nextData=nullptr;
+                delete dkey;
             }
             std::string childkey;
             std::copy(key+start,key+(pos-1),std::inserter<std::string>(childkey,childkey.begin()));
-            ConfigData *cdat=child->nextData,*before=child;
+            ConfigData *cdat=child,*before=nullptr;
             while(cdat){
                 if(cdat->Key==childkey){
                     if(cdat->haveChild){
@@ -103,7 +105,7 @@ confplus::Config::ConfigData *confplus::Config::setKey(const char* key){
                 before=cdat;
                 cdat=cdat->nextData;
             };
-            if(!cdat){
+            if(!cdat && before){
                 before->nextData=new ConfigData;
                 before->haveChild=true;
                 cdat=before->nextData;
@@ -115,12 +117,17 @@ confplus::Config::ConfigData *confplus::Config::setKey(const char* key){
     std::string reskey;
     std::copy(key+start,key+strlen(key),std::inserter<std::string>(reskey,reskey.begin()));
 
-    if(!ekey){
+    if(child){
         child->nextData=new ConfigData;
         ConfigData *res=child->nextData;
         res->haveChild=false;
         res->Value._nextValue=nullptr;
         return res;
+    }else if(!ekey){
+        firstData=new ConfigData;
+        firstData->haveChild=false;
+        firstData->Value._nextValue=nullptr;
+        return firstData;
     }
 
     return ekey;
@@ -141,6 +148,7 @@ void confplus::Config::delKey(confplus::Config::ConfigData* key){
 
 confplus::Config::ConfigData::ConfigData(){
     nextData=nullptr;
+    haveChild=false;
 }
 
 confplus::Config::ConfigData::~ConfigData(){
@@ -260,10 +268,12 @@ int confplus::Config::getIntValue(confplus::Config::ConfigData* key, size_t pos)
 }
 
 void confplus::Config::setValue(confplus::Config::ConfigData* key, size_t pos, const char* value){
-    if(key->haveChild){
+    if(key && key->haveChild){
         ConfException err;
         err[ConfException::Error] << "getValue it is a path not key" << pos  << '\n';
         throw err;
+    }else if(!key){
+        key = new ConfigData;
     }
 
     for(ConfigValue *cur=&key->Value; cur; cur=cur->_nextValue){
