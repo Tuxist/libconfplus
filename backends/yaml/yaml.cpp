@@ -81,7 +81,7 @@ void confplus::Yaml::loadConfig(const char *path,Config *conf){
 
     bool seq=false;
     std::string key,value;
-
+    int pos = 0;
     do {
         yaml_event_t event;
         if (!yaml_parser_parse(&parse, &event))
@@ -133,10 +133,14 @@ void confplus::Yaml::loadConfig(const char *path,Config *conf){
             }
             cname+=key;
             Config::ConfigData *ckey=conf->setKey(cname.c_str());
-            conf->setValue(ckey,0,value.c_str());
+            conf->setValue(ckey,pos,value.c_str());
             value.clear();
-            if(!seq)
+            if(!seq){
+                pos=0;
                 key.clear();
+            }else{
+                ++pos;
+            }
         }
         type=event.type;
         yaml_event_delete(&event);

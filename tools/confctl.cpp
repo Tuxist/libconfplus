@@ -33,8 +33,9 @@
 int main(int argc,char *argv[]){
     try{
         confplus::Config conf(argv[1]);
-        if(conf.getKey("/BLOGI/HTTP/DOMAIN")){
-            std::cout << "success" << std::endl;
+        confplus::Config::ConfigData *domainkey=conf.getKey("/BLOGI/HTTP/DOMAIN");
+        if(domainkey){
+            std::cout << conf.getValue(domainkey,0) << std::endl;
         }
     }catch(confplus::ConfException &e){
         std::cerr << e.what() << std::endl;

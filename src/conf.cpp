@@ -253,13 +253,10 @@ const char * confplus::Config::getValue(confplus::Config::ConfigData* key, size_
         throw err;
     }
 
-    size_t lvl=0;
-
     for(ConfigValue *cur=key->Value; cur; cur=cur->_nextValue){
-        if(lvl==pos){
+        if(cur->_Pos==pos){
             return cur->_Value.c_str();
         }
-        ++lvl;
     }
 
     return nullptr;
@@ -278,20 +275,18 @@ void confplus::Config::setValue(confplus::Config::ConfigData* key, size_t pos, c
         }
     }
 
-    ConfigValue *cur=key->Value,*bef=nullptr;
+    ConfigValue **cur=&key->Value;
 
-    while(cur){
-        bef=cur;
-        cur=cur->_nextValue;
+    while(*cur){
+        cur=&(*cur)->_nextValue;
     };
 
-    if(!bef){
-        bef = new ConfigValue();
+    if(!*cur){
+        *cur = new ConfigValue();
     }
 
-    bef->_nextValue = new ConfigValue();
-    bef->_Value = value;
-    bef->_Pos = pos;
+    (*cur)->_Value = value;
+    (*cur)->_Pos = pos;
 
     ++key->Elements;
 
