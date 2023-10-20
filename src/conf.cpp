@@ -47,89 +47,89 @@ confplus::Config::ConfigValue::~ConfigValue(){
 }
 
 confplus::Config::ConfigData *confplus::Config::getKey(const char* key){
-    ConfigData *child=firstData;
-    size_t start=0;
-    for(size_t pos=0; pos<strlen(key); ++pos){
-        if(key[pos]=='/'){
+    ConfigData *cdat=firstData;
+    if(key[0]!='/'){
+        ConfException exp;
+        exp[ConfException::Error] << "Config: getkey wrong path!";
+        throw exp;
+    }
+    size_t start=1,pos=1;
+    while(pos<=strlen(key)){
+GETKEYSEARCH:
+        if(key[pos]=='/' || key[pos]=='\0'){
             std::string childkey;
-            std::copy(key+start,key+(pos-1),std::inserter<std::string>(childkey,childkey.begin()));
-            if(child && child->haveChild){
-                for(ConfigData *cdat=child; cdat; cdat=cdat->nextData){
-                    if(cdat->Key==childkey){
-                        child=cdat->Child;
+            std::copy(key+start,key+pos,std::inserter<std::string>(childkey,childkey.begin()));
+            while(cdat){
+                if(cdat->Key==childkey){
+                    if(key[pos]=='\0'){
+                          return cdat;
                     }
+                    cdat=cdat->Child;
+                    ++pos;
+                    start=pos;
+                    goto GETKEYSEARCH;
                 }
-                start=++pos;
+                cdat=cdat->nextData;
             }
         }
+        ++pos;
     }
-
-    std::string vkey;
-    std::copy(key+start,key+strlen(key),std::inserter<std::string>(vkey,vkey.begin()));
-
-    for(ConfigData *cdat=child; cdat; cdat=cdat->nextData){
-        if(!child->haveChild && cdat->Key==vkey){
-            return cdat->Child;
-        }
-    }
-
     ConfException exp;
-    exp[ConfException::Critical] << "Config: key not found";
+    exp[ConfException::Error] << "Config: key not found";
     throw exp;
 }
 
 confplus::Config::ConfigData *confplus::Config::setKey(const char* key){
-    ConfigData *child=firstData,*ekey=nullptr,*before=nullptr;
-    size_t start=0;
-    for(size_t pos=0; pos<strlen(key); ++pos){
-        if(key[pos]=='/'){
-            if(ekey){
-                if(before)
-                    before->nextData=ekey->nextData;
-                ekey->nextData=nullptr;
-                delete ekey;
-            }
-            std::string childkey;
-            std::copy(key+start,key+(pos-1),std::inserter<std::string>(childkey,childkey.begin()));
-            ConfigData *cdat=child;
-            while(cdat){
-                if(cdat->Key==childkey){
-                    if(cdat->haveChild){
-                        child=cdat->Child;
-                        break;
-                    } else{
-                        ekey=cdat->Child;
-                    }
-                }
-                before=cdat;
-                cdat=cdat->nextData;
-            };
-            if(!cdat && before){
-                before->nextData=new ConfigData;
-                before->haveChild=true;
-                cdat=before->nextData;
-            }
-            start=++pos;
+
+    auto createdat = [] (ConfigData **root){
+        while(*root){
+            root=&(*root)->nextData;
         }
+        *root=new ConfigData;
+        return *root;
+    };
+
+    auto existsdat = [] (ConfigData *search,const std::string ckey){
+        while(search){
+            if(search->Key==ckey){
+                return search;
+            }
+            search=search->nextData;
+        }
+        return (ConfigData*)nullptr;
+    };
+
+    if(key[0]!='/'){
+        ConfException exp;
+        exp[ConfException::Error] << "Config: setkey wrong path!";
+        throw exp;
     }
 
-    std::string reskey;
-    std::copy(key+start,key+strlen(key),std::inserter<std::string>(reskey,reskey.begin()));
+    size_t start=1,pos=1;
 
-    if(child){
-        child->nextData=new ConfigData;
-        ConfigData *res=child->nextData;
-        res->haveChild=false;
-        res->Value._nextValue=nullptr;
-        return res;
-    }else if(!ekey){
-        firstData=new ConfigData;
-        firstData->haveChild=false;
-        firstData->Value._nextValue=nullptr;
-        return firstData;
+    ConfigData *find=nullptr,**child=&firstData;
+
+    while(pos<=strlen(key)){
+        if(key[pos]=='/' || key[pos]=='\0'){
+
+            std::string childkey;
+            std::copy(key+start,key+pos,std::inserter<std::string>(childkey,childkey.begin()));
+            start=(pos+1);
+
+            find=existsdat(*child,childkey);
+
+            if(!find){
+                find = createdat(child);
+                find->Key=childkey;
+                if(key[pos]!='\0')
+                    find->haveChild=true;
+            }
+            child=&find->Child;
+        }
+        ++pos;
     }
 
-    return ekey;
+    return find;
 }
 
 void confplus::Config::delKey(confplus::Config::ConfigData* key){
@@ -146,6 +146,7 @@ void confplus::Config::delKey(confplus::Config::ConfigData* key){
 
 
 confplus::Config::ConfigData::ConfigData(){
+    Value=nullptr;
     nextData=nullptr;
     haveChild=false;
 }
@@ -153,6 +154,9 @@ confplus::Config::ConfigData::ConfigData(){
 confplus::Config::ConfigData::~ConfigData(){
     if(haveChild)
         delete Child;
+    else
+        delete Value;
+
     delete nextData;
 }
 
@@ -251,7 +255,7 @@ const char * confplus::Config::getValue(confplus::Config::ConfigData* key, size_
 
     size_t lvl=0;
 
-    for(ConfigValue *cur=&key->Value; cur; cur=cur->_nextValue){
+    for(ConfigValue *cur=key->Value; cur; cur=cur->_nextValue){
         if(lvl==pos){
             return cur->_Value.c_str();
         }
@@ -267,27 +271,23 @@ int confplus::Config::getIntValue(confplus::Config::ConfigData* key, size_t pos)
 }
 
 void confplus::Config::setValue(confplus::Config::ConfigData* key, size_t pos, const char* value){
-    if(key && key->haveChild){
-        ConfException err;
-        err[ConfException::Error] << "getValue it is a path not key" << pos  << '\n';
-        throw err;
-    }else if(!key){
-        key = new ConfigData;
-    }
-
-    for(ConfigValue *cur=&key->Value; cur; cur=cur->_nextValue){
+    for(ConfigValue *cur=key->Value; cur; cur=cur->_nextValue){
         if(cur->_Pos==pos){
             cur->_Value=value;
             return;
         }
     }
 
-    ConfigValue *cur=&key->Value,*bef=nullptr;
+    ConfigValue *cur=key->Value,*bef=nullptr;
 
     while(cur){
         bef=cur;
         cur=cur->_nextValue;
     };
+
+    if(!bef){
+        bef = new ConfigValue();
+    }
 
     bef->_nextValue = new ConfigValue();
     bef->_Value = value;

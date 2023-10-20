@@ -61,7 +61,7 @@ namespace confplus {
             bool         haveChild;
 
             union {
-                ConfigValue  Value;
+                ConfigValue *Value;
                 ConfigData  *Child;
             };
 

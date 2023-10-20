@@ -132,7 +132,6 @@ void confplus::Yaml::loadConfig(const char *path,Config *conf){
                 std::copy(pp.begin(),pp.end(),std::inserter<std::string>(cname,std::begin(cname)));
             }
             cname+=key;
-            std::cerr << cname << ": " << value  << std::endl;
             Config::ConfigData *ckey=conf->setKey(cname.c_str());
             conf->setValue(ckey,0,value.c_str());
             value.clear();
