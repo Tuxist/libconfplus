@@ -33,9 +33,9 @@
 int main(int argc,char *argv[]){
     try{
         confplus::Config conf(argv[1]);
-        confplus::Config::ConfigData *domainkey=conf.getKey("/BLOGI/PLUGINDIR");
+        confplus::Config::ConfigData *domainkey=conf.getKey("/BLOGI/HTTP/BIND");
         if(domainkey){
-            std::cout << conf.getValue(domainkey,1) << std::endl;
+            std::cout << conf.getValue(domainkey,0) << std::endl;
         }
     }catch(confplus::ConfException &e){
         std::cerr << e.what() << std::endl;

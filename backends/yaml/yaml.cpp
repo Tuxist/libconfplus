@@ -118,7 +118,8 @@ void confplus::Yaml::loadConfig(const char *path,Config *conf){
 
             case YAML_SEQUENCE_END_EVENT:{
                 seq=false;
-                key.clear();
+                key=value;
+                value.clear();
             }break;
 
             default:
