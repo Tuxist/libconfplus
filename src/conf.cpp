@@ -53,6 +53,7 @@ confplus::Config::ConfigData *confplus::Config::getKey(const char* key){
         exp[ConfException::Error] << "Config: getkey wrong path!";
         throw exp;
     }
+    bool match=false;
     size_t start=1,pos=1;
     while(pos<=strlen(key)){
 GETKEYSEARCH:
@@ -67,10 +68,13 @@ GETKEYSEARCH:
                     cdat=cdat->Child;
                     ++pos;
                     start=pos;
+                    match=true;
                     goto GETKEYSEARCH;
                 }
                 cdat=cdat->nextData;
             }
+            if(!match)
+                break;
         }
         ++pos;
     }
