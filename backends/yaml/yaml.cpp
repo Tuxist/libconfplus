@@ -93,7 +93,8 @@ void confplus::Yaml::loadConfig(const char *path,Config *conf){
                     cystack->prevel=ystack;
                     ystack=cystack;
                     ystack->anchor=key;
-                    key.clear();
+                    key=value;
+                    value.clear();
             }break;
 
             case YAML_MAPPING_END_EVENT:{
@@ -119,6 +120,7 @@ void confplus::Yaml::loadConfig(const char *path,Config *conf){
             case YAML_SEQUENCE_END_EVENT:{
                 seq=false;
                 key=value;
+                pos=0;
                 value.clear();
             }break;
 
@@ -137,7 +139,6 @@ void confplus::Yaml::loadConfig(const char *path,Config *conf){
             conf->setValue(ckey,pos,value.c_str());
             value.clear();
             if(!seq){
-                pos=0;
                 key.clear();
             }else{
                 ++pos;
