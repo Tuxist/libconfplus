@@ -153,6 +153,7 @@ confplus::Config::ConfigData::ConfigData(){
     Value=nullptr;
     nextData=nullptr;
     haveChild=false;
+    Elements=0;
 }
 
 confplus::Config::ConfigData::~ConfigData(){
