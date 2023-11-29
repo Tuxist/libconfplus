@@ -248,12 +248,12 @@ size_t confplus::Config::getElements(confplus::Config::ConfigData* key){
 const char * confplus::Config::getValue(confplus::Config::ConfigData* key, size_t pos){
     if(key->haveChild){
         ConfException err;
-        err[ConfException::Error] << "getValue it is a path not key" << pos  << '\n';
+        err[ConfException::Error] << "getValue it is a path not key" << pos;
         throw err;
     }
     if(key->Elements<pos){
         ConfException err;
-        err[ConfException::Error] << "getValue pos out of range !" << pos  << '\n';
+        err[ConfException::Error] << "getValue pos out of range !" << pos;
         throw err;
     }
 
@@ -268,7 +268,13 @@ const char * confplus::Config::getValue(confplus::Config::ConfigData* key, size_
 }
 
 int confplus::Config::getIntValue(confplus::Config::ConfigData* key, size_t pos){
-    return atoi(getValue(key,pos));
+    const char *val=getValue(key,pos);
+    if(val)
+        return atoi(val);
+
+    ConfException err;
+    err[ConfException::Error] << "getIntValue empty at pos: " << pos;
+    throw err;
 }
 
 void confplus::Config::setValue(confplus::Config::ConfigData* key, size_t pos, const char* value){
