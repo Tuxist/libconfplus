@@ -2,7 +2,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/src
 )
 
-find_package(YAML)
+find_package(YAML REQUIRED)
 
 if(${YAML_FOUND})
     set( yamlsrc
