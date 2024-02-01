@@ -28,12 +28,12 @@
 #include <iostream>
 
 #include <string>
+#include <iniparser.h>
 
 #include "ini.h"
 #include "conf.h"
 
 confplus::Ini::Ini(){
-    Dict=nullptr;
 }
 
 confplus::Ini::~Ini(){
@@ -52,13 +52,25 @@ const char* confplus::Ini::getAuthor(){
 }
 
 void confplus::Ini::saveConfig(const char *path,const Config *conf){
-
+    // dictionary *d=nullptr;
+    // for(){
+    //
+    // }
 }
 
 
 void confplus::Ini::loadConfig(const char *path,Config *conf){
-    if(Dict)
-        iniparser_freedict(Dict);
-    Dict=iniparser_load(path);
+    dictionary *d;
+    d=iniparser_load(path);
+
+    int sc = iniparser_getnsec(d);
+
+    for(int i=0; i < sc; ++i){
+       const char* scname=iniparser_getsecname(d,i);
+       Config::ConfigData *ckey=conf->setKey(scname);
+       conf->setValue(ckey,0,iniparser_getstring(d,scname,nullptr));
+    }
+
+    iniparser_freedict(d);
 }
 

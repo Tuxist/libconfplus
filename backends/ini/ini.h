@@ -25,8 +25,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *******************************************************************************/
 
-#include <iniparser.h>
-
 #include "backend.h"
 
 namespace confplus {
@@ -43,8 +41,6 @@ namespace confplus {
 
         Ini();
         virtual ~Ini();
-    private:
-         dictionary *Dict;
     };
 };
 
